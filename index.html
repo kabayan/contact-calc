@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+
+<head>
+    <title>STAY HOME</title>
+</head>
+
+<body>
+    <h2>Contact calc 接触計算</h2>
+    <h3>Determine Your Contact Risk. どのくらい接触が減ったかを計算します。</h3>
+    <h3>License : MIT</h3>
+    <div>
+        昨日 Yesterday:
+        <input id="history1" type="date" onchange="createDownload(1)" >
+        <a id="download1" href="">download</a>
+        <input type="file" name="file1" id="file1">  
+    </div>
+    <div>
+        先週 Same day last week:
+        <input id="history2" type="date" onchange="createDownload(2)">
+        <a id="download2" href="">download</a>
+        <input type="file" name="file2" id="file2">    
+    </div>
+
+    <div id="ratio"></div>
+    <div id="historyResult1"></div>
+    <div id="historyResult2"></div>
+</body>
+<script>
+    var ratioresult = [0,0];
+
+    var file1 = document.getElementById('file1');
+    var file2 = document.getElementById('file2');
+
+    var today = new Date();
+    today.setDate(today.getDate()-1);
+    var yyyy = today.getFullYear();
+    var mm = ("0"+(today.getMonth()+1)).slice(-2);
+    var dd = ("0"+today.getDate()).slice(-2);
+    document.getElementById("history1").value=yyyy+'-'+mm+'-'+dd;
+
+    today.setDate(today.getDate()-7);
+    var yyyy = today.getFullYear();
+    var mm = ("0"+(today.getMonth()+1)).slice(-2);
+    var dd = ("0"+today.getDate()).slice(-2);
+    document.getElementById("history2").value=yyyy+'-'+mm+'-'+dd;
+
+    createDownload(1);
+    createDownload(2);
+
+    if (window.File && window.FileReader && window.FileList && window.Blob) {
+        function loadkml(e,id) {
+            var fileData = e.files[0];
+            var reader = new FileReader();
+            reader.onload = function () {
+                const parser = new DOMParser();
+                let result = parser.parseFromString(reader.result, "text/xml")
+                // addHistory(result);
+                let places = Array.prototype.slice.call(result.documentElement.getElementsByTagName("Placemark"));
+
+                var risk = 0;
+                var risikbias = 0;
+
+                places.forEach(element => {
+                    var n = element.getElementsByTagName("name")[0].innerHTML
+                    addHistory(n,id);
+                    switch (n) {
+                        case 'On a train':
+                            risikbias = 2;
+                            risk += getTimeSpan(element) * risikbias;
+                        case 'On a subway':
+                            risikbias = 3;
+                            risk += getTimeSpan(element) * risikbias;
+
+                            break;
+                        case 'Walking':
+                            risikbias = 1;
+                            risk += getTimeSpan(element) * risikbias;
+                            break;
+
+                        default:
+                            if (n.indexOf("自宅") === false) {
+                                // 自宅以外
+                                risikbias = 5;
+                            } else {
+                                // 自宅
+                                risikbias = 0.001;
+                            }
+                            risk += getTimeSpan(element) * risikbias;
+                            break;
+                    }
+                    addHistory("Score : " + risk,id);
+
+                });
+                ratioresult[id-1] = risk;
+
+                document.getElementById("ratio").innerHTML = (ratioresult[0]/ratioresult[1])*100+" %";
+            }
+            reader.readAsText(fileData);
+        }
+        file1.addEventListener('change', function(){loadkml(file1,1)}, false);
+        file2.addEventListener('change', function(){loadkml(file2,2)}, false);
+
+    } else {
+        file.style.display = 'none';
+        history.innerHTML = 'Please use chrome...';
+    }
+
+    function getTimeSpan(element) {
+        let s = element.getElementsByTagName("TimeSpan")[0].getElementsByTagName("begin")[0].innerHTML;
+        let e = element.getElementsByTagName("TimeSpan")[0].getElementsByTagName("end")[0].innerHTML;
+        return (Date.parse(e) - Date.parse(s)) / 60000
+    }
+
+    function createDownload(id) {
+        let s = document.getElementById("history" + id).value;
+        let sdate = new Date(s);
+
+        let sy = sdate.getFullYear();
+        let sm = sdate.getMonth();
+        let sd = sdate.getDate();
+
+        let href = "https://www.google.com/maps/timeline/kml?authuser=0&pb=!1m8!1m3!1i" +
+            sy + "!2i" +
+            sm + "!3i" +
+            sd + "!2m3!1i" +
+            sy + "!2i" +
+            sm + "!3i" + sd
+
+        document.getElementById("download" + id).href = href;
+
+    }
+
+    function addHistory(h,id) {
+        var history = document.getElementById('historyResult'+id);
+        history.innerHTML = history.innerHTML + "<br />" + h;
+    }
+</script>
+
+</html>
